@@ -28,7 +28,7 @@ import threading
 import time
 from typing import List, Optional
 
-from dds_abstraction import DDS_MODE, RELIABLE_QOS, BEST_EFFORT_QOS, QoSProfile
+from dds_abstraction import RELIABLE_QOS, BEST_EFFORT_QOS, QoSProfile
 from ecu import ECU, OTAState
 from update_manager import UpdateManager
 from metrics_collector import (
@@ -219,14 +219,6 @@ def run_demo(
     Run the full OTA demo and return collected metrics.
     """
     print_banner()
-
-    # Show DDS mode notice
-    if DDS_MODE == "SIMULATION":
-        print(f"  {_YELLOW}⚠  Running in SIMULATION mode (RTI Connext DDS not installed)")
-        print(f"     All DDS behaviors are faithfully simulated.{_RESET}\n")
-    else:
-        print(f"  {_GREEN}✓  RTI Connext DDS detected — native middleware active{_RESET}\n")
-
     print_architecture()
 
     # Select QoS

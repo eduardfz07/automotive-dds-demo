@@ -1,14 +1,14 @@
 """
 dds_abstraction.py - DDS Abstraction Layer for Automotive OTA Demo
 ==================================================================
-Provides a unified API that uses RTI Connext DDS when available,
-or falls back to a pure-Python simulation that accurately models
-key DDS behaviors (pub/sub, QoS, latency, reliability).
+Pure-Python simulation that accurately models key DDS behaviors:
+pub/sub, QoS policies, simulated network latency, and reliability.
 
 Automotive context:
   In AUTOSAR Adaptive, DDS replaces CAN/LIN for high-bandwidth,
-  multi-ECU coordination. RTI Connext DDS is widely deployed in
-  automotive ADAS, OTA update systems, and V2X applications.
+  multi-ECU coordination. This simulation faithfully reproduces
+  the DDS pub/sub semantics used in automotive ADAS, OTA update
+  systems, and V2X applications.
 """
 from __future__ import annotations
 
@@ -19,19 +19,6 @@ import collections
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
-
-# ---------------------------------------------------------------------------
-# Try to import RTI Connext DDS; fall back to simulation if not installed.
-# ---------------------------------------------------------------------------
-try:
-    import rti.connextdds as dds  # type: ignore
-    DDS_MODE = "RTI"
-    print("[DDS] RTI Connext DDS detected — using native middleware.")
-except ImportError:
-    dds = None  # type: ignore
-    DDS_MODE = "SIMULATION"
-    print("[DDS] RTI Connext DDS not found — running in SIMULATION mode.")
-    print("[DDS] Install RTI Connext DDS SDK and set $NDDSHOME for native mode.\n")
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +229,7 @@ def _get_or_create_topic(name: str, type_name: str) -> _SimTopic:
 
 
 # ---------------------------------------------------------------------------
-# Public API — mirrors RTI Connext DDS Python API patterns
+# Public API — DDS-style publish/subscribe interface
 # ---------------------------------------------------------------------------
 
 def create_participant(domain_id: int = 0,
@@ -250,16 +237,11 @@ def create_participant(domain_id: int = 0,
     """
     Create a DDS DomainParticipant.
 
-    In RTI Connext DDS:
-        participant = dds.DomainParticipant(domain_id)
-
     Automotive context:
         Domain 0 is the vehicle-internal bus. Participants auto-discover
         each other via DDS Simple Discovery Protocol (SDP) — no static IP
         configuration required, unlike traditional automotive networks.
     """
-    if DDS_MODE == "RTI":
-        return dds.DomainParticipant(domain_id)
     return _SimParticipant(domain_id, qos_profile)
 
 
@@ -267,17 +249,11 @@ def create_topic(participant: Any, name: str, type_name: str) -> Any:
     """
     Create a DDS Topic (the named, typed data channel).
 
-    In RTI Connext DDS:
-        topic = dds.Topic(participant, name, SomeType)
-
     Automotive context:
         Topics decouple publishers from subscribers — an ECU publishing
         'ECUStatus' doesn't need to know which systems are listening.
         This is unlike CAN where each message ID targets specific nodes.
     """
-    if DDS_MODE == "RTI":
-        # In real RTI use: dds.Topic(participant, name, <generated type>)
-        return {"participant": participant, "name": name, "type_name": type_name}
     return _get_or_create_topic(name, type_name)
 
 
@@ -286,17 +262,12 @@ def create_writer(participant: Any, topic: Any,
     """
     Create a DDS DataWriter on the given topic.
 
-    In RTI Connext DDS:
-        writer = dds.DataWriter(participant.implicit_publisher, topic, qos)
-
     Automotive context:
         A DataWriter with RELIABLE + TRANSIENT_LOCAL QoS ensures that even
         if an ECU briefly loses network connectivity, it will still receive
         OTA commands when it reconnects (history cache replay).
     """
     qos = qos_profile or RELIABLE_QOS
-    if DDS_MODE == "RTI":
-        return {"participant": participant, "topic": topic, "qos": qos, "_mode": "RTI"}
     return _SimWriter(topic, qos)
 
 
@@ -306,21 +277,12 @@ def create_reader(participant: Any, topic: Any,
     """
     Create a DDS DataReader with an optional data-available callback.
 
-    In RTI Connext DDS:
-        reader = dds.DataReader(
-            participant.implicit_subscriber, topic, qos,
-            listener=MyListener()
-        )
-
     Automotive context:
-        The listener callback is invoked by the DDS middleware on any thread
-        (similar to CAN interrupt handlers). Callbacks must be non-blocking
-        and thread-safe — exactly as in AUTOSAR RTE port callbacks.
+        The listener callback is invoked on a background thread (similar to
+        CAN interrupt handlers). Callbacks must be non-blocking and
+        thread-safe — exactly as in AUTOSAR RTE port callbacks.
     """
     qos = qos_profile or RELIABLE_QOS
-    if DDS_MODE == "RTI":
-        return {"participant": participant, "topic": topic, "qos": qos, "_mode": "RTI"}
-
     reader = _SimReader(topic, qos, on_data_available)
     topic._register_reader(reader, qos)
     return reader
@@ -330,38 +292,22 @@ def write(writer: Any, sample_dict: dict) -> None:
     """
     Publish a sample to the topic.
 
-    In RTI Connext DDS:
-        writer.write(sample)
-
     Automotive context:
         In DDS, 'write' is O(1) for the publisher — the middleware handles
         serialization, fragmentation, and delivery guarantees asynchronously.
         On CAN, a 50-byte payload needs 7 frames and blocking bus arbitration.
     """
-    if DDS_MODE == "RTI":
-        # Real RTI write: writer.write(SomeType(**sample_dict))
-        pass
-    else:
-        writer.write(sample_dict)
+    writer.write(sample_dict)
 
 
 def shutdown(participant: Any) -> None:
     """
     Gracefully shut down a DomainParticipant and all its entities.
 
-    In RTI Connext DDS:
-        participant.close()
-
     Automotive context:
         Proper shutdown sends DDS BYE messages so other participants
         immediately detect the node leaving — no timeout required.
         This maps to clean ECU power-down sequences in AUTOSAR.
     """
-    if DDS_MODE == "RTI":
-        try:
-            participant.close()
-        except Exception:
-            pass
-    else:
-        if isinstance(participant, _SimParticipant):
-            participant._active = False
+    if isinstance(participant, _SimParticipant):
+        participant._active = False

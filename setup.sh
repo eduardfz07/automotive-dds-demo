@@ -10,10 +10,8 @@
 #   1. Checks Python 3.8+
 #   2. Creates a virtual environment (.venv/)
 #   3. Installs Python dependencies
-#   4. Detects RTI Connext DDS installation ($NDDSHOME)
-#   5. Creates data/ and plots/ directories
-#   6. Generates pre-recorded sample data
-#   7. Prints demo run instructions
+#   4. Creates data/ and plots/ directories
+#   5. Generates pre-recorded sample data
 
 set -e  # exit on error
 
@@ -27,9 +25,9 @@ NC='\033[0m' # No Color
 
 # ── Banner ────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════╗"
-echo -e "║  RTI Connext DDS — Automotive OTA Demo Setup         ║"
-echo -e "╚══════════════════════════════════════════════════════╝${NC}"
+echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════════════════╗"
+echo -e "║  Automotive DDS OTA Demo Setup                         ║"
+echo -e "╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 # ── Step 1: Check Python version ─────────────────────────────────────────
@@ -84,44 +82,17 @@ pip install --quiet -r requirements.txt
 
 echo -e "  ${GREEN}✓${NC} matplotlib, numpy, pandas, colorama, tabulate installed"
 
-# ── Step 4: Detect RTI Connext DDS ───────────────────────────────────────
+# ── Step 4: Create directories ───────────────────────────────────────────
 echo ""
-echo -e "${BOLD}[4/6] Checking for RTI Connext DDS...${NC}"
-
-if [ -n "$NDDSHOME" ]; then
-    echo -e "  ${GREEN}✓${NC} NDDSHOME found: $NDDSHOME"
-    echo -e "  ${CYAN}→${NC} Attempting to install RTI Python connector..."
-
-    # Try installing RTI Connext DDS Python package
-    if pip install --quiet "rti.connextdds" 2>/dev/null; then
-        echo -e "  ${GREEN}✓${NC} RTI Connext DDS Python package installed — native mode available"
-    else
-        echo -e "  ${YELLOW}→${NC} RTI Python package installation failed."
-        echo -e "     Install manually: pip install rti.connextdds"
-        echo -e "     Demo will run in SIMULATION mode (all features available)."
-    fi
-else
-    echo -e "  ${YELLOW}→${NC} NDDSHOME not set — RTI Connext DDS not detected."
-    echo -e "  ${YELLOW}→${NC} Demo will run in SIMULATION mode."
-    echo ""
-    echo -e "  ${CYAN}Optional: Install RTI Connext DDS for native mode:${NC}"
-    echo -e "    1. Download from: https://www.rti.com/free-trial/connext-dds"
-    echo -e "    2. Install and set: export NDDSHOME=/path/to/rti_connext_dds"
-    echo -e "    3. Run: pip install rti.connextdds"
-    echo -e "    4. Re-run this setup script"
-fi
-
-# ── Step 5: Create directories ───────────────────────────────────────────
-echo ""
-echo -e "${BOLD}[5/6] Creating project directories...${NC}"
+echo -e "${BOLD}[4/5] Creating project directories...${NC}"
 
 mkdir -p data plots
 echo -e "  ${GREEN}✓${NC} data/  — metrics CSV output"
 echo -e "  ${GREEN}✓${NC} plots/ — visualization PNG output"
 
-# ── Step 6: Generate sample data ─────────────────────────────────────────
+# ── Step 5: Generate sample data ─────────────────────────────────────────
 echo ""
-echo -e "${BOLD}[6/6] Generating pre-recorded sample data...${NC}"
+echo -e "${BOLD}[5/5] Generating pre-recorded sample data...${NC}"
 
 $PYTHON_CMD generate_sample_data.py
 
@@ -162,13 +133,5 @@ echo -e " 12:00  Discuss AUTOSAR Adaptive / ISO 26262 relevance"
 echo -e " 14:00  Q&A"
 echo ""
 echo -e "${BOLD}DDS Mode:${NC}"
-$PYTHON_CMD -c "
-from dds_abstraction import DDS_MODE
-import sys
-if DDS_MODE == 'RTI':
-    print('  \033[92m✓  Native RTI Connext DDS — production-grade middleware\033[0m')
-else:
-    print('  \033[93m→  Simulation mode — faithful DDS behavior emulation\033[0m')
-    print('     (Set NDDSHOME to switch to native RTI Connext DDS)')
-"
+echo -e "  ${CYAN}→  Python DDS simulation — faithful DDS behavior emulation${NC}"
 echo ""
