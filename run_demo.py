@@ -28,7 +28,7 @@ import threading
 import time
 from typing import List, Optional
 
-from dds_abstraction import DDS_MODE, RELIABLE_QOS, BEST_EFFORT_QOS, QoSProfile
+from dds_abstraction import RELIABLE_QOS, BEST_EFFORT_QOS, QoSProfile
 from ecu import ECU, OTAState
 from update_manager import UpdateManager
 from metrics_collector import (
@@ -55,7 +55,7 @@ _RESET  = "\033[0m"
 def print_banner() -> None:
     print(f"""
 {_BOLD}{_CYAN}╔══════════════════════════════════════════════════════════════╗
-║   RTI Connext DDS — Automotive OTA Update Coordination Demo  ║
+║   DDS — Automotive OTA Update Coordination Demo  ║
 ║   AUTOSAR Adaptive | Multi-ECU | Real-time State Sync        ║
 ╚══════════════════════════════════════════════════════════════╝{_RESET}
 """)
@@ -219,14 +219,6 @@ def run_demo(
     Run the full OTA demo and return collected metrics.
     """
     print_banner()
-
-    # Show DDS mode notice
-    if DDS_MODE == "SIMULATION":
-        print(f"  {_YELLOW}⚠  Running in SIMULATION mode (RTI Connext DDS not installed)")
-        print(f"     All DDS behaviors are faithfully simulated.{_RESET}\n")
-    else:
-        print(f"  {_GREEN}✓  RTI Connext DDS detected — native middleware active{_RESET}\n")
-
     print_architecture()
 
     # Select QoS
@@ -321,7 +313,7 @@ def run_demo(
 
     # ── Step 7: CAN vs DDS comparison ────────────────────────────────────
     if show_comparison:
-        print_section("STEP 7: CAN 2.0B vs RTI Connext DDS Overhead Analysis")
+        print_section("STEP 7: CAN 2.0B vs DDS Overhead Analysis")
 
         for n in [5, 10, 20, 50]:
             CANBusAnalyzer.print_comparison(n)
@@ -348,7 +340,7 @@ def run_demo(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="RTI Connext DDS Automotive OTA Demo",
+        description="DDS Automotive OTA Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

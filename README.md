@@ -35,7 +35,7 @@ in modern Software-Defined Vehicles.
 
 ### Key Demo Points
 
-| Feature | CAN 2.0B | RTI Connext DDS |
+| Feature | CAN 2.0B | DDS (simulated) |
 |---|---|---|
 | Command delivery | Unicast × N ECUs | Single multicast |
 | 5-ECU OTA latency | ~25ms | ~4.5ms |
@@ -51,8 +51,7 @@ in modern Software-Defined Vehicles.
 
 - **Linux** (Ubuntu 20.04+ recommended) or macOS
 - **Python 3.8+**
-- Optional: [RTI Connext DDS](https://www.rti.com/free-trial/connext-dds) with Python SDK
-  (demo runs in simulation mode without it)
+- No external DDS middleware required — all DDS behaviors are simulated in pure Python
 
 ---
 
@@ -96,12 +95,11 @@ python visualize_results.py --generate-sample
 ## Module Descriptions
 
 ### `dds_abstraction.py`
-DDS abstraction layer. The abstraction accurately
-models pub/sub delivery, QoS policies (RELIABLE/BEST_EFFORT, TRANSIENT_LOCAL/VOLATILE),
-simulated network latency (gaussian, 2ms mean / 0.5ms stddev), and BEST_EFFORT
-packet drop (~3%).
+Pure-Python DDS simulation layer. Accurately models pub/sub delivery, QoS policies
+(RELIABLE/BEST_EFFORT, TRANSIENT_LOCAL/VOLATILE), simulated network latency
+(Gaussian, 2ms mean / 0.5ms stddev), and BEST_EFFORT packet drop (~3%).
 
-**Exports:** `DDS_MODE`, `ReliabilityKind`, `DurabilityKind`, `QoSProfile`,
+**Exports:** `ReliabilityKind`, `DurabilityKind`, `QoSProfile`,
 `RELIABLE_QOS`, `BEST_EFFORT_QOS`, `CONTROL_QOS`, and the API functions:
 `create_participant`, `create_topic`, `create_writer`, `create_reader`, `write`, `shutdown`.
 
@@ -141,12 +139,6 @@ Generates 5 publication-quality charts (dark theme):
 ### `generate_sample_data.py`
 Generates realistic pre-recorded metrics CSV files for 5, 10, 20 ECU scenarios.
 Used for visualization without requiring a full demo run (suitable for screen recording).
-
-### `qos_profiles.xml`
-RTI Connext DDS QoS XML profiles for the automotive domain:
-- `ECUStatus_Reliable` — RELIABLE + TRANSIENT_LOCAL + 100ms deadline + 5ms latency budget
-- `ECUStatus_BestEffort` — BEST_EFFORT + VOLATILE for non-critical telemetry
-- `OTAControl_Reliable` — EXCLUSIVE_OWNERSHIP + RELIABLE + 500ms liveliness for command security
 
 ---
 
@@ -285,7 +277,7 @@ python run_demo.py --num-ecus 20 --duration 60
 ```
 
 ### Custom QoS
-Edit `qos_profiles.xml` and rebuild the profile:
+Edit the QoS profile in your code:
 ```python
 from dds_abstraction import QoSProfile, ReliabilityKind, DurabilityKind
 custom_qos = QoSProfile(
@@ -339,7 +331,7 @@ ECU_005      DONE           100%   14102.8ms 1704067234.789
 
 ```
 automotive-dds-demo/
-├── dds_abstraction.py      # DDS API (RTI native or simulation fallback)
+├── dds_abstraction.py      # Pure-Python DDS simulation layer
 ├── ecu.py                  # Simulated ECU with OTA state machine
 ├── update_manager.py       # OTA Update Coordinator (UCM Master)
 ├── metrics_collector.py    # Metrics & CAN vs DDS analysis

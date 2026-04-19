@@ -166,7 +166,7 @@ def plot_scalability(data_dir: str, output_dir: str, show: bool) -> None:
                labelcolor=RTI_TEXT, fontsize=9)
 
     ax1.set_title(
-        "Scalability: RTI Connext DDS vs CAN 2.0B for OTA Coordination",
+        "Scalability: DDS vs CAN 2.0B for OTA Coordination",
         fontsize=13, fontweight="bold", pad=15, color=RTI_TEXT,
     )
     ax1.set_xticks(x)

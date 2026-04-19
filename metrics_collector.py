@@ -415,7 +415,7 @@ class CANBusAnalyzer:
         dds_m = CANBusAnalyzer.calculate_dds_overhead(num_ecus)
 
         print(f"\n{_BOLD}{'─'*65}")
-        print(f"  CAN 2.0B vs RTI Connext DDS — {num_ecus} ECUs")
+        print(f"  CAN 2.0B vs DDS — {num_ecus} ECUs")
         print(f"{'─'*65}{_RESET}")
         print(f"  {'Metric':<35} {'CAN 2.0B':>12} {'DDS/RTPS':>12}")
         print(f"  {'─'*35} {'─'*12} {'─'*12}")

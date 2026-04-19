@@ -366,7 +366,7 @@ if __name__ == "__main__":
     ecu_ids = [f"ECU_{i:03d}" for i in range(1, args.num_ecus + 1)]
 
     print(f"\n{'='*65}")
-    print(f"  RTI Connext DDS — Automotive OTA Update Manager")
+    print(f"DDS — Automotive OTA Update Manager")
     print(f"{'='*65}")
 
     # Start ECUs
