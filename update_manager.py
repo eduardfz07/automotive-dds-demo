@@ -201,6 +201,15 @@ class UpdateManager:
         completed = self._completion_event.wait(timeout=timeout)
         return completed
 
+    def is_complete(self) -> bool:
+        """Return True if all expected ECUs have reached a terminal state."""
+        return self._completion_event.is_set()
+
+    def get_ecu_states(self) -> dict:
+        """Return a thread-safe snapshot of current ECU states."""
+        with self._lock:
+            return dict(self.ecu_states)
+
     # ------------------------------------------------------------------
     # Metrics
     # ------------------------------------------------------------------

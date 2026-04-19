@@ -22,9 +22,17 @@ import os
 import sys
 from typing import Optional
 
+# Parse --show before importing matplotlib so we can select the backend first.
+# This avoids the "can't switch backend after pyplot import" issue.
+_SHOW_MODE = "--show" in sys.argv
+
 try:
     import matplotlib
-    matplotlib.use("Agg")  # non-interactive backend by default
+    # Set backend before importing pyplot: interactive if --show, else file-only.
+    if _SHOW_MODE:
+        matplotlib.use("TkAgg")
+    else:
+        matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
     from matplotlib.patches import FancyArrowPatch
@@ -85,7 +93,6 @@ def _save_fig(fig, output_dir: str, filename: str, show: bool) -> None:
                 facecolor=RTI_DARK_BG, edgecolor="none")
     print(f"  ✓  Saved: {path}")
     if show:
-        matplotlib.use("TkAgg")  # switch to interactive for display
         plt.show()
     plt.close(fig)
 
@@ -536,8 +543,6 @@ if __name__ == "__main__":
 
     if args.generate_sample:
         print("[VIZ] Generating sample data...")
-        import generate_sample_data  # noqa: F401 — runs __main__ block via import
-        # Call functions directly
         from generate_sample_data import (
             generate_scenario,
             generate_scalability_comparison,

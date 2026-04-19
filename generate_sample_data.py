@@ -179,8 +179,9 @@ def generate_scalability_comparison(output_dir: str = "data/") -> str:
 
             # CAN model — command delivery is O(N) unicast (serial bus)
             # Each ECU requires N × 7 frames to receive the command
-            bits_per_frame = 65 + 8 * 8  # 129 bits at 1 Mbps = 129 μs/frame
-            frame_ms = 129 / 1e3  # ms
+            # CAN 2.0B frame: 65 bits overhead + 8 bytes × 8 bits/byte = 65 + 64 = 129 bits
+            bits_per_frame = 65 + (8 * 8)  # 65 overhead + 64 data = 129 bits total
+            frame_ms = bits_per_frame / 1e3  # at 1 Mbps: 129μs per frame = 0.129ms
             base_can_lat = n * 7 * frame_ms  # serial unicast to N ECUs
             bus_load  = min(100, (n * 7 * 7 + n) * frame_ms / 10_000 * 100)  # % in 10s
             contention = 1.0 + max(0, (bus_load - 50) / 50.0)

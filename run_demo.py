@@ -123,8 +123,7 @@ class _MetricsBridge:
 
     def _poll(self) -> None:
         while self._running:
-            with self._manager._lock:
-                states_copy = dict(self._manager.ecu_states)
+            states_copy = self._manager.get_ecu_states()
 
             for ecu_id, update in states_copy.items():
                 prev = self._prev_states.get(ecu_id, "IDLE")
@@ -295,7 +294,7 @@ def run_demo(
     while not done and time.time() < deadline:
         lines_printed = manager.print_status_table(clear_lines=lines_printed)
 
-        if manager._completion_event.is_set():
+        if manager.is_complete():
             done = True
         else:
             time.sleep(poll_interval)
