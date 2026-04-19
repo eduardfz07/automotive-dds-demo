@@ -1,2 +1,11 @@
 __pycache__/
 *.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Live run output (timestamped CSVs) — not pre-recorded samples
+data/run_*.csv

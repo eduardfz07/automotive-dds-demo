@@ -187,16 +187,16 @@ def plot_latency_distribution(data_dir: str, output_dir: str, show: bool) -> Non
         df = pd.read_csv(csv_path)
     else:
         # Generate synthetic data inline
-        import random as rng
-        rng.seed(0)
+        import random
+        random.seed(0)
         rows = []
         for run in range(50):
             for i in range(1, 6):
                 ecu_id = f"ECU_{i:03d}"
                 rows.append({"ecu_id": ecu_id, "qos": "RELIABLE",
-                              "latency_ms": max(5000, rng.gauss(10000 + 500*i, 300))})
+                              "latency_ms": max(5000, random.gauss(10000 + 500*i, 300))})
                 rows.append({"ecu_id": ecu_id, "qos": "BEST_EFFORT",
-                              "latency_ms": max(4000, rng.gauss(9500 + 600*i, 800))})
+                              "latency_ms": max(4000, random.gauss(9500 + 600*i, 800))})
         df = pd.DataFrame(rows)
 
     # Convert to seconds for readability

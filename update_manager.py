@@ -384,7 +384,7 @@ if __name__ == "__main__":
 
     # Real-time display loop
     lines_printed = 0
-    while not manager._completion_event.is_set():
+    while not manager.is_complete():
         lines_printed = manager.print_status_table(clear_lines=lines_printed)
         time.sleep(0.5)
 

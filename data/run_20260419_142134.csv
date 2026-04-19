@@ -1,6 +1,0 @@
-num_ecus,ecu_id,latency_ms,jitter_ms,end_to_end_ms,qos_profile,error_count
-5,ECU_001,6718.483,1378.799,7346.799,ECUStatus_Reliable,0
-5,ECU_002,5968.001,1378.799,7346.799,ECUStatus_Reliable,0
-5,ECU_003,6793.822,1378.799,7346.799,ECUStatus_Reliable,0
-5,ECU_004,7028.280,1378.799,7346.799,ECUStatus_Reliable,0
-5,ECU_005,7346.799,1378.799,7346.799,ECUStatus_Reliable,0

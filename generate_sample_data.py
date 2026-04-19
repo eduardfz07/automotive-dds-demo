@@ -183,7 +183,7 @@ def generate_scalability_comparison(output_dir: str = "data/") -> str:
             bits_per_frame = 65 + (8 * 8)  # 65 overhead + 64 data = 129 bits total
             frame_ms = bits_per_frame / 1e3  # at 1 Mbps: 129μs per frame = 0.129ms
             base_can_lat = n * 7 * frame_ms  # serial unicast to N ECUs
-            bus_load  = min(100, (n * 7 * 7 + n) * frame_ms / 10_000 * 100)  # % in 10s
+            bus_load  = min(100, (n * 7 * 7 + n) * frame_ms / 10_000 * 100)  # % in a 10s OTA window: (total_frames × frame_duration_ms) / 10_000ms
             contention = 1.0 + max(0, (bus_load - 50) / 50.0)
             can_lat   = round(base_can_lat * contention + random.gauss(0, 2.0), 2)
             can_load  = round(bus_load + random.gauss(0, 1.0), 1)
