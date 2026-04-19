@@ -150,11 +150,15 @@ class ECU:
         firmware_version: str = "1.0.0",
         domain_id: int = 0,
         qos_profile: Optional[QoSProfile] = None,
+        inject_failure=None,
+        failure_at=None
     ):
         self.ecu_id = ecu_id
         self.firmware_version = firmware_version
         self.domain_id = domain_id
         self.qos = qos_profile or RELIABLE_QOS
+        self.inject_failure = inject_failure
+        self.failure_at = failure_at # Time (in seconds) after which failure occurs
 
         # State machine internals
         self._state = OTAState.IDLE
@@ -352,6 +356,15 @@ class ECU:
         with self._lock:
             if self._state != OTAState.INSTALLING:
                 return
+
+        # Check if we should inject a failure
+        elapsed = time.time() - self._start_time
+        if self.inject_failure and elapsed >= self.failure_at:
+            self._transition_to(
+                OTAState.ERROR,
+                error_code="INSTALL_FAILED_CRC"
+            )
+            return
 
         # Simulate random installation failure
         if random.random() < self._INSTALL_ERROR_PROB:
