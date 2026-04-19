@@ -76,17 +76,6 @@ class ECUStateUpdate:
     """
     DDS sample published on 'ECUStatus' topic.
 
-    In real RTI Connext DDS this would be generated from an IDL:
-        struct ECUStateUpdate {
-            string ecu_id;       //@key
-            string state;
-            double timestamp;
-            string firmware_version;
-            int32  progress_percent;
-            string error_code;
-            int64  sequence_number;
-        };
-
     The @key annotation on ecu_id means each ECU has its own instance
     in the DDS domain — a subscriber can filter by ECU ID efficiently.
     """
