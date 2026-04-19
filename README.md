@@ -1,6 +1,6 @@
 # Automotive DDS OTA Update Coordination Demo
 
-> **RTI Connext DDS** — Multi-ECU Over-the-Air (OTA) firmware update coordination demo.
+Multi-ECU Over-the-Air (OTA) firmware update coordination demo.
 > Shows why DDS beats CAN/LIN for scalable, real-time automotive software-defined vehicle (SDV) communication.
 
 ---
@@ -10,8 +10,7 @@
 This demo simulates a fleet of automotive ECUs (Electronic Control Units) undergoing a
 coordinated OTA firmware update orchestrated via DDS (Data Distribution Service) pub/sub middleware.
 
-It demonstrates how **RTI Connext DDS** (and the AUTOSAR Adaptive DDS-based communication stack)
-solves the scalability, reliability, and latency limitations of traditional CAN/LIN bus architectures
+It demonstrates how and the AUTOSAR Adaptive DDS-based communication stack solves the scalability, reliability, and latency limitations of traditional CAN/LIN bus architectures
 in modern Software-Defined Vehicles.
 
 ### Architecture
@@ -92,30 +91,12 @@ python run_demo.py --num-ecus 5 --qos best_effort
 # Generate visualization charts
 python visualize_results.py --generate-sample
 ```
-
----
-
-## 15-Minute Demo Script
-
-| Time | Action | Talking Point |
-|---|---|---|
-| 0:00 | Introduction | "Traditional CAN can't scale to SDV OTA — here's why DDS solves it" |
-| 0:30 | Show architecture | DDS pub/sub topology, AUTOSAR Adaptive mapping |
-| 1:00 | `python run_demo.py --num-ecus 5 --show-comparison` | Live 5-ECU OTA, watch real-time state table |
-| 5:00 | Metrics walkthrough | Latency 4.5ms vs CAN 25ms, jitter <5ms, throughput |
-| 7:00 | `python run_demo.py --num-ecus 5 --qos best_effort` | QoS impact: BEST_EFFORT loses messages |
-| 9:00 | `python visualize_results.py --generate-sample` | Show scalability chart: CAN fails at 20+ ECUs |
-| 11:00 | Scalability chart | CAN bus load >80% at 20 ECUs; DDS stays flat |
-| 12:00 | AUTOSAR/ISO 26262 | TRANSIENT_LOCAL = no missed commands; Deadline = safety watchdog |
-| 14:00 | Q&A | |
-
 ---
 
 ## Module Descriptions
 
 ### `dds_abstraction.py`
-DDS abstraction layer. Tries to import RTI Connext DDS; falls back to a
-pure-Python simulation when RTI is not installed. The simulation accurately
+DDS abstraction layer. The abstraction accurately
 models pub/sub delivery, QoS policies (RELIABLE/BEST_EFFORT, TRANSIENT_LOCAL/VOLATILE),
 simulated network latency (gaussian, 2ms mean / 0.5ms stddev), and BEST_EFFORT
 packet drop (~3%).
@@ -271,24 +252,9 @@ directly mirrors the AUTOSAR UCM `PackageManagement` state machine.
 
 ---
 
-## RTI Connext DDS vs Alternatives
-
-| Feature | RTI Connext DDS | OpenDDS | Eclipse Cyclone DDS |
-|---|---|---|---|
-| AUTOSAR AP certified | ✓ (multiple Tier-1 OEMs) | ✗ | Partial |
-| DDS Security 1.1 | ✓ | ✓ | ✓ |
-| QoS XML profiles | ✓ (this demo) | ✓ | Partial |
-| Python API | ✓ (connext-py) | ✓ | ✓ |
-| Automotive certifications | ISO 26262, AUTOSAR | None | Partial |
-| Latency (median) | ~50μs | ~100μs | ~60μs |
-| AUTOSAR Adaptive validation | Production-proven | Research/OSS | OSS |
-| Commercial support | ✓ (RTI) | Community | Eclipse |
-
----
-
 ## Running Pre-recorded vs Live Demo
 
-### Pre-recorded (recommended for presentation)
+### Pre-recorded version
 
 ```bash
 # Generate all sample data and charts
@@ -348,12 +314,6 @@ ecu2 = ECU("ECU_002", domain_id=1)  # diagnostics domain
 ## Example Output
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║   RTI Connext DDS — Automotive OTA Update Coordination Demo  ║
-╚══════════════════════════════════════════════════════════════╝
-
-[DDS] RTI Connext DDS not found — running in SIMULATION mode.
-
 [DDS] ▶  START_UPDATE command broadcast via DDS multicast
 [DDS]    Firmware: 2.0.0
 [DDS]    Targets : ECU_001, ECU_002, ECU_003, ECU_004, ECU_005
@@ -386,7 +346,6 @@ automotive-dds-demo/
 ├── run_demo.py             # Main demo orchestrator
 ├── visualize_results.py    # Matplotlib visualization suite
 ├── generate_sample_data.py # Pre-recorded sample data generator
-├── qos_profiles.xml        # RTI Connext DDS QoS profiles
 ├── requirements.txt        # Python dependencies
 ├── setup.sh                # Linux setup script
 ├── README.md               # This file
@@ -401,6 +360,3 @@ automotive-dds-demo/
 MIT — free to use for interviews, demos, and education.
 
 ---
-
-*Built with ❤️ for the RTI Solutions Architect interview.*
-*Demonstrates 4 years of AUTOSAR embedded expertise applied to DDS/SDV architecture.*
