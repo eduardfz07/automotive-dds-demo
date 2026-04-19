@@ -1,7 +1,7 @@
 """
 visualize_results.py - Matplotlib Visualization Suite
 ======================================================
-Generates 5 publication-quality charts for the RTI interview demo.
+Generates 5 publication-quality charts for the demo.
 All charts use a professional dark theme inspired by RTI branding.
 
 Charts:

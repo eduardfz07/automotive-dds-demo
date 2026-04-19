@@ -68,7 +68,7 @@ class OTAState(Enum):
 
 
 # ---------------------------------------------------------------------------
-# DDS Data Types (modeled as dataclasses; in real RTI these are IDL-generated)
+# DDS Data Types
 # ---------------------------------------------------------------------------
 
 @dataclass
