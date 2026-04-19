@@ -349,6 +349,6 @@ automotive-dds-demo/
 
 ## License
 
-MIT — free to use for interviews, demos, and education.
+MIT
 
 ---
