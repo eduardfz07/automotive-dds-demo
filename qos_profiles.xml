@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  qos_profiles.xml — RTI Connext DDS QoS Profiles for Automotive OTA Demo
+  =========================================================================
+  This file configures QoS (Quality of Service) policies for all DDS entities
+  used in the automotive OTA update coordination demo.
+
+  How RTI Connext DDS loads this file:
+    - Set NDDS_QOS_PROFILES environment variable to the path of this file, OR
+    - Place in the working directory (RTI auto-discovers "USER_QOS_PROFILES.xml"), OR
+    - Load programmatically: dds.QosProvider("qos_profiles.xml")
+
+  AUTOSAR Adaptive relevance:
+    AUTOSAR AP SWS CommunicationManagement maps DDS QoS policies to
+    ara::com service interface definitions. The profiles below correspond
+    to ara::com::MethodCallProcessingMode and EventDataCache settings.
+
+  ISO 26262 relevance:
+    - RELIABLE + deadline monitoring = safety watchdog for OTA commands
+    - TRANSIENT_LOCAL = ensures no state update is missed (functional safety)
+    - Ownership = prevents ECU from being commanded by multiple masters
+
+  Profile inheritance:
+    Profiles use base_name to inherit from RTI's built-in QoS library
+    (BuiltinQosLib) and override specific policies. This reduces verbosity
+    and ensures best-practice defaults for all unspecified policies.
+-->
+
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:noNamespaceSchemaLocation="https://community.rti.com/schema/7.3.0/rti_dds_qos_profiles.xsd">
+
+  <qos_library name="AutomotiveOTA_Library">
+
+    <!-- ==================================================================
+         PROFILE: ECUStatus_Reliable
+         Use: ECU state update publisher/subscriber (ECUStatus topic)
+         Rationale: Safety-critical OTA state must never be missed.
+                    TRANSIENT_LOCAL allows late-joining monitors to receive
+                    the current state without waiting for next update.
+         AUTOSAR UCM: Corresponds to UpdateStatus event group with
+                      guaranteed delivery semantics.
+    ================================================================== -->
+    <qos_profile name="ECUStatus_Reliable"
+                 base_name="BuiltinQosLib::Generic.StrictReliable">
+
+      <datawriter_qos>
+        <!-- RELIABLE: middleware retransmits until ACK received from all readers.
+             In automotive: guarantees every ECU state change reaches the
+             UCM Master, even over congested in-vehicle Ethernet. -->
+        <reliability>
+          <kind>RELIABLE_RELIABILITY_QOS</kind>
+          <!-- max_blocking_time: how long write() blocks if send queue is full.
+               Set to 10ms — acceptable stall for non-real-time OTA management.
+               For ADAS sensor data, use 0ms (never block). -->
+          <max_blocking_time>
+            <sec>0</sec>
+            <nanosec>10000000</nanosec>  <!-- 10ms -->
+          </max_blocking_time>
+        </reliability>
+
+        <!-- TRANSIENT_LOCAL: DataWriter caches last 10 samples in memory.
+             Late-joining subscriber (e.g., OTA monitor that started after ECUs)
+             will automatically receive the 10 most recent state updates.
+             AUTOSAR: equivalent to EventDataCache with LAST_N_CACHED policy. -->
+        <durability>
+          <kind>TRANSIENT_LOCAL_DURABILITY_QOS</kind>
+        </durability>
+
+        <!-- HISTORY keep_last: cache the last 10 samples per DataWriter instance.
+             For OTA status, 10 samples covers the full 7-state cycle plus retries.
+             Set to KEEP_ALL for audit/logging applications. -->
+        <history>
+          <kind>KEEP_LAST_HISTORY_QOS</kind>
+          <depth>10</depth>
+        </history>
+
+        <!-- DEADLINE: DataWriter MUST publish at least every 100ms.
+             If an ECU fails to publish within this window, DataReader triggers
+             on_requested_deadline_missed() callback — acts as a safety watchdog.
+             AUTOSAR: maps to AliveTimeout in ServiceInterface supervision. -->
+        <deadline>
+          <period>
+            <sec>0</sec>
+            <nanosec>100000000</nanosec>  <!-- 100ms -->
+          </period>
+        </deadline>
+
+        <!-- LATENCY_BUDGET: hint to middleware that 5ms delivery is acceptable.
+             RTI Connext can batch samples for efficiency when latency budget > 0.
+             For ADAS (camera/lidar), set to 1ms or less. -->
+        <latency_budget>
+          <duration>
+            <sec>0</sec>
+            <nanosec>5000000</nanosec>  <!-- 5ms -->
+          </duration>
+        </latency_budget>
+
+        <!-- LIVELINESS: assert liveness every 1 second.
+             If an ECU's participant stops asserting liveliness (e.g., crash),
+             all its DataWriters are declared "not alive" — immediate detection
+             vs. CAN timeout-based detection (~500ms). -->
+        <liveliness>
+          <kind>AUTOMATIC_LIVELINESS_QOS</kind>
+          <lease_duration>
+            <sec>1</sec>
+            <nanosec>0</nanosec>
+          </lease_duration>
+        </liveliness>
+
+        <!-- RESOURCE_LIMITS: bound memory usage on embedded ECUs.
+             max_samples = 50 prevents unbounded queue growth on resource-
+             constrained AUTOSAR Adaptive platforms (typically 256MB RAM). -->
+        <resource_limits>
+          <max_samples>50</max_samples>
+          <max_instances>32</max_instances>       <!-- max 32 ECU instances -->
+          <max_samples_per_instance>10</max_samples_per_instance>
+        </resource_limits>
+
+        <!-- OWNERSHIP: SHARED means multiple DataWriters can publish to same
+             topic instance. Use EXCLUSIVE for single-master command topics. -->
+        <ownership>
+          <kind>SHARED_OWNERSHIP_QOS</kind>
+        </ownership>
+      </datawriter_qos>
+
+      <datareader_qos>
+        <reliability>
+          <kind>RELIABLE_RELIABILITY_QOS</kind>
+        </reliability>
+
+        <durability>
+          <kind>TRANSIENT_LOCAL_DURABILITY_QOS</kind>
+        </durability>
+
+        <history>
+          <kind>KEEP_LAST_HISTORY_QOS</kind>
+          <depth>10</depth>
+        </history>
+
+        <deadline>
+          <period>
+            <sec>0</sec>
+            <nanosec>100000000</nanosec>  <!-- 100ms — must match DataWriter deadline -->
+          </period>
+        </deadline>
+
+        <latency_budget>
+          <duration>
+            <sec>0</sec>
+            <nanosec>5000000</nanosec>
+          </duration>
+        </latency_budget>
+
+        <liveliness>
+          <kind>AUTOMATIC_LIVELINESS_QOS</kind>
+          <lease_duration>
+            <sec>1</sec>
+            <nanosec>0</nanosec>
+          </lease_duration>
+        </liveliness>
+
+        <!-- TIME_BASED_FILTER: subscriber only processes 1 sample per 20ms.
+             Reduces CPU load on resource-constrained ECUs without missing
+             state transitions. OTA progress at >50 updates/sec is unnecessary. -->
+        <time_based_filter>
+          <minimum_separation>
+            <sec>0</sec>
+            <nanosec>20000000</nanosec>  <!-- 20ms minimum between callbacks -->
+          </minimum_separation>
+        </time_based_filter>
+
+        <resource_limits>
+          <max_samples>50</max_samples>
+          <max_instances>32</max_instances>
+          <max_samples_per_instance>10</max_samples_per_instance>
+        </resource_limits>
+      </datareader_qos>
+
+    </qos_profile>
+
+
+    <!-- ==================================================================
+         PROFILE: ECUStatus_BestEffort
+         Use: Non-critical telemetry (CPU temp, diagnostic counters)
+         Rationale: High-frequency data where latest value matters more
+                    than guaranteed delivery. Reduces bandwidth overhead.
+         AUTOSAR: Maps to EventGroup with FireAndForget semantics.
+         WARNING: Do NOT use for OTA commands or safety-critical data.
+    ================================================================== -->
+    <qos_profile name="ECUStatus_BestEffort"
+                 base_name="BuiltinQosLib::Generic.BestEffort">
+
+      <datawriter_qos>
+        <!-- BEST_EFFORT: no retransmission, no ACK. Publisher sends once.
+             Equivalent to CAN fire-and-forget with no error frame response.
+             Use for: odometer, temperature, non-critical diagnostics. -->
+        <reliability>
+          <kind>BEST_EFFORT_RELIABILITY_QOS</kind>
+        </reliability>
+
+        <!-- VOLATILE: no history cache — subscribers only get new data.
+             Saves memory on embedded platforms. Old telemetry is worthless. -->
+        <durability>
+          <kind>VOLATILE_DURABILITY_QOS</kind>
+        </durability>
+
+        <history>
+          <kind>KEEP_LAST_HISTORY_QOS</kind>
+          <depth>1</depth>  <!-- Only latest sample matters -->
+        </history>
+
+        <!-- No deadline for best-effort — data comes when available -->
+        <deadline>
+          <period>
+            <sec>2147483647</sec>  <!-- DURATION_INFINITE -->
+            <nanosec>2147483647</nanosec>
+          </period>
+        </deadline>
+
+        <!-- Larger latency budget allows batching for efficiency -->
+        <latency_budget>
+          <duration>
+            <sec>0</sec>
+            <nanosec>20000000</nanosec>  <!-- 20ms — allow batching -->
+          </duration>
+        </latency_budget>
+      </datawriter_qos>
+
+      <datareader_qos>
+        <reliability>
+          <kind>BEST_EFFORT_RELIABILITY_QOS</kind>
+        </reliability>
+        <durability>
+          <kind>VOLATILE_DURABILITY_QOS</kind>
+        </durability>
+        <history>
+          <kind>KEEP_LAST_HISTORY_QOS</kind>
+          <depth>1</depth>
+        </history>
+      </datareader_qos>
+
+    </qos_profile>
+
+
+    <!-- ==================================================================
+         PROFILE: OTAControl_Reliable
+         Use: OTA command publisher/subscriber (OTAControl topic)
+         Rationale: Commands (START_UPDATE, ABORT) must be delivered exactly
+                    once to ALL ECUs. EXCLUSIVE_OWNERSHIP prevents rogue
+                    systems from injecting OTA commands (security layer 1).
+         AUTOSAR UCM: Maps to UpdateManagementInterface::RequestUpdate()
+                      method call with guaranteed delivery.
+         ISO 26262: This profile enforces single-master OTA authority.
+    ================================================================== -->
+    <qos_profile name="OTAControl_Reliable">
+
+      <datawriter_qos>
+        <reliability>
+          <kind>RELIABLE_RELIABILITY_QOS</kind>
+          <max_blocking_time>
+            <sec>0</sec>
+            <nanosec>5000000</nanosec>  <!-- 5ms — command must go out fast -->
+          </max_blocking_time>
+        </reliability>
+
+        <!-- TRANSIENT_LOCAL depth=1: ECU that joins mid-update still receives
+             the most recent command (e.g., START_UPDATE). Prevents ECU from
+             being stuck in IDLE if it missed the initial broadcast. -->
+        <durability>
+          <kind>TRANSIENT_LOCAL_DURABILITY_QOS</kind>
+        </durability>
+
+        <history>
+          <kind>KEEP_LAST_HISTORY_QOS</kind>
+          <depth>1</depth>  <!-- Only latest command matters -->
+        </history>
+
+        <!-- Strict deadline: command acknowledged within 50ms or alarm raised -->
+        <deadline>
+          <period>
+            <sec>0</sec>
+            <nanosec>50000000</nanosec>  <!-- 50ms -->
+          </period>
+        </deadline>
+
+        <!-- Very tight latency budget for command delivery -->
+        <latency_budget>
+          <duration>
+            <sec>0</sec>
+            <nanosec>2000000</nanosec>  <!-- 2ms -->
+          </duration>
+        </latency_budget>
+
+        <!-- EXCLUSIVE_OWNERSHIP: only the OTA master (strength=100) can write.
+             Secondary / backup masters use lower strength values.
+             Prevents ECU hijacking via DDS — important for cybersecurity
+             (UNECE WP.29 R155 compliance). -->
+        <ownership>
+          <kind>EXCLUSIVE_OWNERSHIP_QOS</kind>
+        </ownership>
+        <ownership_strength>
+          <value>100</value>
+        </ownership_strength>
+
+        <!-- LIVELINESS: OTA Master must assert liveliness every 500ms.
+             If master crashes, ECUs detect absence in <500ms and can
+             trigger fail-safe mode (abort update, maintain current firmware). -->
+        <liveliness>
+          <kind>MANUAL_BY_PARTICIPANT_LIVELINESS_QOS</kind>
+          <lease_duration>
+            <sec>0</sec>
+            <nanosec>500000000</nanosec>  <!-- 500ms -->
+          </lease_duration>
+        </liveliness>
+
+        <resource_limits>
+          <max_samples>10</max_samples>
+          <max_instances>1</max_instances>       <!-- single command stream -->
+          <max_samples_per_instance>1</max_samples_per_instance>
+        </resource_limits>
+      </datawriter_qos>
+
+      <datareader_qos>
+        <reliability>
+          <kind>RELIABLE_RELIABILITY_QOS</kind>
+        </reliability>
+        <durability>
+          <kind>TRANSIENT_LOCAL_DURABILITY_QOS</kind>
+        </durability>
+        <history>
+          <kind>KEEP_LAST_HISTORY_QOS</kind>
+          <depth>1</depth>
+        </history>
+        <deadline>
+          <period>
+            <sec>0</sec>
+            <nanosec>50000000</nanosec>
+          </period>
+        </deadline>
+        <ownership>
+          <kind>EXCLUSIVE_OWNERSHIP_QOS</kind>
+        </ownership>
+        <liveliness>
+          <kind>MANUAL_BY_PARTICIPANT_LIVELINESS_QOS</kind>
+          <lease_duration>
+            <sec>0</sec>
+            <nanosec>500000000</nanosec>
+          </lease_duration>
+        </liveliness>
+        <resource_limits>
+          <max_samples>10</max_samples>
+          <max_instances>1</max_instances>
+          <max_samples_per_instance>1</max_samples_per_instance>
+        </resource_limits>
+      </datareader_qos>
+
+    </qos_profile>
+
+  </qos_library>
+
+</dds>
