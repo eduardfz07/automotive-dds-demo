@@ -90,6 +90,10 @@ python run_demo.py --num-ecus 5 --qos best_effort
 # Inject error for a specific ECU after n amount of time
 python run_demo.py --num-ecus 5 --inject-failure ECU_003 --failure-at 3.0
 
+# Discovery - "--late-join-count" ECUs join the fleet after "--late-join-delay" seconds
+# Also displays TRANSIENT_LOCAL behaviour => catches samples and delivers them to readers that join after the initial publish
+python run_demo.py --num-ecus 5 --late-join-delay 3 --late-join-count 2
+
 # Generate visualization charts
 python visualize_results.py --generate-sample
 ```
