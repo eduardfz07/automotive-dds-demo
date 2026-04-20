@@ -301,11 +301,26 @@ custom_qos = QoSProfile(
 In `ecu.py`, adjust `_INSTALL_ERROR_PROB` (default 5%) to increase fault rates
 and demonstrate DDS-based resilience detection.
 
+Errors can also be injected manually by:
+
+```python
+python run_demo.py --num-ecus 5 --inject-failure ECU_003 --failure-at 3.0
+```
+
 ### Multi-domain Simulation
 ```python
 # Separate domains for vehicle bus vs diagnostics
 ecu1 = ECU("ECU_001", domain_id=0)  # vehicle bus
 ecu2 = ECU("ECU_002", domain_id=1)  # diagnostics domain
+```
+
+### Late joining
+
+To examplify DDS discovery and TRANSIENT_LOCAL behaviour:
+```python
+# Discovery - "--late-join-count" ECUs join the fleet after "--late-join-delay" seconds
+# Also displays TRANSIENT_LOCAL behaviour => catches samples and delivers them to readers that join after the initial publish
+python run_demo.py --num-ecus 5 --late-join-delay 3 --late-join-count 2
 ```
 
 ---
