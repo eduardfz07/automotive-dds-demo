@@ -214,6 +214,8 @@ def run_demo(
     show_comparison: bool = False,
     duration: float = 30.0,
     domain_id: int = 0,
+    inject_failure: str = "None",
+    failure_at: float = 3.0
 ) -> dict:
     """
     Run the full OTA demo and return collected metrics.
@@ -241,7 +243,11 @@ def run_demo(
     ecus: List[ECU] = []
 
     for ecu_id in ecu_ids:
-        ecu = ECU(ecu_id, "1.0.0", domain_id, qos)
+        should_fail = (ecu_id == inject_failure)
+        ecu = ECU(ecu_id, "1.0.0", domain_id, qos,
+        inject_failure="INSTALL_FAILED_CRC" if should_fail else None,
+        failure_at=failure_at)
+
         ecu.start()
         ecus.append(ecu)
         print(f"  [ECU] {ecu_id} started — firmware 1.0.0 | "
@@ -364,6 +370,10 @@ Examples:
                         help="DDS domain ID (default: 0)")
     parser.add_argument("--qos-comparison",  action="store_true",
                         help="Run QoS comparison (RELIABLE vs BEST_EFFORT) after main demo")
+    parser.add_argument("--inject-failure", type=str, default=None, 
+                        help="ECU ID to inject failure into (example: ECU_003)")
+    parser.add_argument("--failure-at", type=float, default=3.0, help="Time (in seconds) after which the failure shall occur")
+
     return parser.parse_args()
 
 
@@ -377,6 +387,8 @@ if __name__ == "__main__":
         show_comparison=args.show_comparison,
         duration=args.duration,
         domain_id=args.domain_id,
+        inject_failure=args.inject_failure,
+        failure_at=args.failure_at
     )
 
     if args.qos_comparison:

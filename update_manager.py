@@ -314,6 +314,11 @@ class UpdateManager:
                     done_ts = ts_map.get(OTAState.DONE.value)
                     lat_ms  = (done_ts - cmd_ts) * 1000.0 if done_ts else 0.0
                     lat_str = f"{lat_ms:>8.1f}ms"
+                elif cmd_ts and update.state == OTAState.ERROR.value:
+                    ts_map   = timestamps.get(ecu_id, {})
+                    error_ts = ts_map.get(OTAState.ERROR.value)
+                    lat_ms   = (error_ts - cmd_ts) * 1000.0 if error_ts else 0.0
+                    lat_str  = f"{lat_ms:>8.1f}ms"
                 elif cmd_ts and update.state != OTAState.IDLE.value:
                     elapsed = (time.time() - cmd_ts) * 1000.0
                     lat_str = f"{elapsed:>8.1f}ms"

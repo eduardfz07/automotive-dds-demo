@@ -87,6 +87,9 @@ python run_demo.py --num-ecus 10 --firmware 3.0.0
 # Demonstrate QoS impact (BEST_EFFORT shows message loss)
 python run_demo.py --num-ecus 5 --qos best_effort
 
+# Inject error for a specific ECU after n amount of time
+python run_demo.py --num-ecus 5 --inject-failure ECU_003 --failure-at 3.0
+
 # Generate visualization charts
 python visualize_results.py --generate-sample
 ```
