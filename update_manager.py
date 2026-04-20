@@ -321,8 +321,8 @@ class UpdateManager:
         Returns the number of lines printed (for next refresh).
         """
         if clear_lines > 0:
-            # Move cursor up to overwrite previous table
-            print(f"\033[{clear_lines}A", end="")
+            # Move cursor up and erase to end of screen to cleanly overwrite
+            print(f"\033[{clear_lines}A\033[J", end="")
 
         header = (
             f"\n{_BOLD}{'ECU ID':<12} {'State':<14} {'Prog':>5} "
@@ -425,7 +425,10 @@ class UpdateManager:
 
         output = "\n".join(lines)
         print(output)
-        return len(lines) + 1  # +1 for leading \n
+        # Count actual newlines (embedded \n in elements + join separators) plus
+        # the one added by print(), so the next call moves the cursor up exactly
+        # the right number of lines regardless of how many \n-prefixed elements exist.
+        return output.count('\n') + 1
 
     def shutdown(self) -> None:
         """Graceful DDS participant cleanup."""
