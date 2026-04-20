@@ -159,6 +159,7 @@ class ECU:
         self.qos = qos_profile or RELIABLE_QOS
         self.inject_failure = inject_failure
         self.failure_at = failure_at # Time (in seconds) after which failure occurs
+        self._update_command_time = None # When START_UPDATE arrived
 
         # State machine internals
         self._state = OTAState.IDLE
@@ -207,6 +208,13 @@ class ECU:
         In AUTOSAR Adaptive, this maps to a port callback in the RTE layer.
         IMPORTANT: Must be non-blocking; heavy work goes to the state machine thread.
         """
+
+        command = sample.get("command", "")
+
+        if command == CMD_START_UPDATE:
+            # Reference point for "failure_at"
+            self._update_command_time = time.time()
+
         target = sample.get("target_ecus", [])
         # Accept command if targeted at this ECU or broadcast (empty list)
         if not target or self.ecu_id in target:
@@ -236,14 +244,48 @@ class ECU:
     # State machine helpers
     # ------------------------------------------------------------------
 
-    def _jitter_sleep(self, base_s: float) -> None:
-        """Sleep for base_s plus gaussian jitter, then publish progress."""
+    def _check_should_fail(self) -> bool:
+        """
+        Check if we have reached the failure time set.
+        """
+        if self.inject_failure and self._update_command_time is not None:
+            # Time elapsed since START_UPDATE command was received
+            elapsed = time.time() - self._update_command_time
+            if elapsed >= self.failure_at:
+                return True
+        return False
+
+    def _jitter_sleep(self, base_s: float) -> bool:
+        """
+        Sleep for base_s plus gaussian jitter in 50ms chunks.
+        Returns True (interrupted) if a failure condition is triggered mid-sleep,
+        False if the full duration elapsed normally.
+        """
         jitter_s = random.gauss(self._JITTER_MEAN_MS, self._JITTER_STDDEV_MS) / 1000.0
-        time.sleep(max(0.0, base_s + jitter_s))
+        remaining = max(0.0, base_s + jitter_s)
+        chunk = 0.05  # 50ms polling interval
+        while remaining > 0.0:
+            if not self._running:
+                return False
+            if self._check_should_fail():
+                return True
+            time.sleep(min(chunk, remaining))
+            remaining -= chunk
+        return False
 
     def _transition_to(self, new_state: OTAState, progress: int = 0,
                        error_code: str = "") -> None:
         """Thread-safe state transition with DDS publication."""
+
+        # Check if we should inject a failure
+        if self._check_should_fail():
+            with self._lock:
+                self._state = OTAState.ERROR
+                self._progress = progress
+                self._error_code = "INSTALL_FAILED_CRC"
+            self._publish_state()
+            return
+
         with self._lock:
             old = self._state
             self._state = new_state
@@ -325,10 +367,15 @@ class ECU:
         for i in range(1, steps + 1):
             if not self._running:
                 return
-            self._jitter_sleep(step_duration)
+
+            if self._jitter_sleep(step_duration):
+                self._transition_to(OTAState.ERROR, error_code="INSTALL_FAILED_CRC")
+                return
+
             with self._lock:
                 if self._state != OTAState.DOWNLOADING:
                     return  # aborted
+
             self._transition_to(OTAState.DOWNLOADING, progress=i * 10)
 
         self._transition_to(OTAState.VERIFYING, progress=0)
@@ -339,10 +386,20 @@ class ECU:
         In AUTOSAR SecOC, this maps to the Message Authentication Code
         verification step before any update is applied.
         """
-        self._jitter_sleep(random.uniform(1.0, 2.0))
+
+        # Check if we should fail mid verify
+        if self._check_should_fail():
+                self._transition_to(OTAState.ERROR, error_code="INSTALL_FAILED_CRC")
+                return
+
+        if self._jitter_sleep(random.uniform(1.0, 2.0)):
+            self._transition_to(OTAState.ERROR, error_code="INSTALL_FAILED_CRC")
+            return
+
         with self._lock:
             if self._state != OTAState.VERIFYING:
                 return
+
         self._transition_to(OTAState.INSTALLING, progress=0)
 
     def _do_installing(self) -> None:
@@ -352,19 +409,18 @@ class ECU:
         resilience coordination (UpdateManager can detect and react in <100ms,
         vs. CAN timeout-based detection which takes ~500ms).
         """
-        self._jitter_sleep(random.uniform(1.0, 2.0))
+
+        # Check if we should fail mid verify
+        if self._check_should_fail():
+                self._transition_to(OTAState.ERROR, error_code="INSTALL_FAILED_CRC")
+                return
+
+        if self._jitter_sleep(random.uniform(1.0, 2.0)):
+            self._transition_to(OTAState.ERROR, error_code="INSTALL_FAILED_CRC")
+            return
         with self._lock:
             if self._state != OTAState.INSTALLING:
                 return
-
-        # Check if we should inject a failure
-        elapsed = time.time() - self._start_time
-        if self.inject_failure and elapsed >= self.failure_at:
-            self._transition_to(
-                OTAState.ERROR,
-                error_code="INSTALL_FAILED_CRC"
-            )
-            return
 
         # Simulate random installation failure
         if random.random() < self._INSTALL_ERROR_PROB:
@@ -380,7 +436,9 @@ class ECU:
         TRANSIENT_LOCAL durability ensures the DONE state is still visible
         to monitoring systems after the reboot.
         """
-        self._jitter_sleep(random.uniform(0.5, 1.0))
+        if self._jitter_sleep(random.uniform(0.5, 1.0)):
+            self._transition_to(OTAState.ERROR, error_code="INSTALL_FAILED_CRC")
+            return
         with self._lock:
             if self._state != OTAState.REBOOTING:
                 return

@@ -247,7 +247,7 @@ def run_demo(
         ecu = ECU(ecu_id, "1.0.0", domain_id, qos,
         inject_failure="INSTALL_FAILED_CRC" if should_fail else None,
         failure_at=failure_at)
-        
+
         ecu.start()
         ecus.append(ecu)
         print(f"  [ECU] {ecu_id} started — firmware 1.0.0 | "
@@ -370,9 +370,9 @@ Examples:
                         help="DDS domain ID (default: 0)")
     parser.add_argument("--qos-comparison",  action="store_true",
                         help="Run QoS comparison (RELIABLE vs BEST_EFFORT) after main demo")
-    parser.add_argument("--inject_failure", type=str, default=None, 
+    parser.add_argument("--inject-failure", type=str, default=None, 
                         help="ECU ID to inject failure into (example: ECU_003)")
-    parser.add_argument("--failure_at", type=float, default=3.0, help="Time (in seconds) after which the failure shall occur")
+    parser.add_argument("--failure-at", type=float, default=3.0, help="Time (in seconds) after which the failure shall occur")
 
     return parser.parse_args()
 
