@@ -215,10 +215,16 @@ def run_demo(
     duration: float = 30.0,
     domain_id: int = 0,
     inject_failure: str = "None",
-    failure_at: float = 3.0
+    failure_at: float = 3.0,
+    late_join_delay: float = 0.0,
+    late_join_count: int = 1,
 ) -> dict:
     """
     Run the full OTA demo and return collected metrics.
+
+    late_join_delay: seconds after START_UPDATE before spawning late ECUs.
+                     Set to 0 (default) to disable the late-join scenario.
+    late_join_count: how many ECUs to spawn as late joiners (default 1).
     """
     print_banner()
     print_architecture()
@@ -265,7 +271,8 @@ def run_demo(
     # ── Step 3: Create UpdateManager ─────────────────────────────────────
     print_section("STEP 3: Initializing Update Manager (UCM Master)")
 
-    manager   = UpdateManager(ecu_ids, qos, domain_id)
+    manager   = UpdateManager(ecu_ids, qos, domain_id,
+                               allow_late_join=(late_join_delay > 0))
     collector = MetricsCollector()
     bridge    = _MetricsBridge(manager, collector, ecu_ids)
 
@@ -279,7 +286,38 @@ def run_demo(
     cmd_time = time.time()
     collector.record_command_sent("START_UPDATE", cmd_time, num_ecus)
     bridge.start()
-    manager.start_update(firmware, ecu_ids)
+    # When allow_late_join is enabled, pass None so UpdateManager broadcasts
+    # (empty target list) — late joiners can then accept the cached command.
+    manager.start_update(firmware, ecu_ids if late_join_delay <= 0 else None)
+
+    # ── Late-join ECU spawner ─────────────────────────────────────────────
+    # Spawns ECU(s) mid-update after `late_join_delay` seconds.
+    # Because OTAControl uses RELIABLE + TRANSIENT_LOCAL QoS, the cached
+    # START_UPDATE command is replayed to the new ECU's reader immediately
+    # on registration — no explicit re-send needed.  This is the DDS
+    # automatic discovery feature in action.
+    late_ecus: List[ECU] = []
+    late_join_spawner: Optional[threading.Thread] = None
+
+    if late_join_delay > 0:
+        def _spawn_late_ecus() -> None:
+            time.sleep(late_join_delay)
+            for i in range(1, late_join_count + 1):
+                late_id = f"ECU_LATE_{i:03d}"
+                late_ecu = ECU(late_id, "1.0.0", domain_id, qos)
+                late_ecu.start()
+                late_ecus.append(late_ecu)
+
+        late_join_spawner = threading.Thread(
+            target=_spawn_late_ecus, name="LateJoinSpawner", daemon=True
+        )
+        late_join_spawner.start()
+        print(
+            f"  {_YELLOW}★  Late-join scenario enabled:{_RESET} "
+            f"{late_join_count} ECU(s) will join in {late_join_delay:.1f}s\n"
+            f"  {_DIM}  DDS TRANSIENT_LOCAL cache will deliver the cached "
+            f"START_UPDATE automatically — no re-send required.{_RESET}\n"
+        )
 
     # ── Step 5: Real-time monitoring ─────────────────────────────────────
     print_section("STEP 5: Real-Time OTA State Monitoring")
@@ -297,20 +335,48 @@ def run_demo(
         else:
             time.sleep(poll_interval)
 
+    # When late joiners are present, keep the display running until they
+    # also reach a terminal state or the deadline expires.
+    if done and late_join_delay > 0:
+        late_deadline = time.time() + max(duration * 0.5, 15.0)
+        while time.time() < late_deadline:
+            with manager._lock:
+                late_ecus_snapshot = list(manager.late_join_ecus)
+                terminal = {OTAState.DONE.value, OTAState.ERROR.value}
+                all_late_done = late_ecus_snapshot and all(
+                    manager.ecu_states.get(eid) is not None
+                    and manager.ecu_states[eid].state in terminal
+                    for eid in late_ecus_snapshot
+                )
+            lines_printed = manager.print_status_table(clear_lines=lines_printed)
+            if all_late_done:
+                break
+            time.sleep(poll_interval)
+
     # Final table (no overwrite)
-    if done:
-        manager.print_status_table(clear_lines=lines_printed)
-    else:
+    manager.print_status_table(clear_lines=lines_printed)
+    if not done:
         print(f"\n{_YELLOW}  ⚠  Demo duration limit reached ({duration}s). "
               f"Some ECUs may still be in progress.{_RESET}")
 
     bridge.stop()
+    if late_join_spawner:
+        late_join_spawner.join(timeout=2.0)
 
     # ── Step 6: Metrics ───────────────────────────────────────────────────
     print_section("STEP 6: OTA Update Metrics")
 
     metrics = manager.get_metrics()
     collector.print_summary()
+
+    if metrics.get("late_join_count", 0) > 0:
+        print(
+            f"\n  {_YELLOW}{_BOLD}★  Late-Join Discovery Summary{_RESET}\n"
+            f"  Late-joining ECUs : {metrics['late_join_count']}"
+            f"  ({', '.join(metrics['late_join_ecus'])})\n"
+            f"  {_DIM}Each received the cached START_UPDATE command automatically\n"
+            f"  via DDS TRANSIENT_LOCAL — zero manual re-sends required.{_RESET}"
+        )
 
     # Save CSV
     os.makedirs("data", exist_ok=True)
@@ -332,6 +398,8 @@ def run_demo(
     # ── Cleanup ───────────────────────────────────────────────────────────
     manager.shutdown()
     for ecu in ecus:
+        ecu.stop()
+    for ecu in late_ecus:
         ecu.stop()
 
     print(f"\n{_GREEN}{_BOLD}  ✓  Demo complete.{_RESET}")
@@ -373,6 +441,11 @@ Examples:
     parser.add_argument("--inject-failure", type=str, default=None, 
                         help="ECU ID to inject failure into (example: ECU_003)")
     parser.add_argument("--failure-at", type=float, default=3.0, help="Time (in seconds) after which the failure shall occur")
+    parser.add_argument("--late-join-delay", type=float, default=0.0,
+                        help="Seconds after START_UPDATE before spawning a late-joining ECU "
+                             "(0 = disabled, e.g. --late-join-delay 3)")
+    parser.add_argument("--late-join-count", type=int, default=1,
+                        help="Number of ECUs to spawn as late joiners (default: 1)")
 
     return parser.parse_args()
 
@@ -388,7 +461,9 @@ if __name__ == "__main__":
         duration=args.duration,
         domain_id=args.domain_id,
         inject_failure=args.inject_failure,
-        failure_at=args.failure_at
+        failure_at=args.failure_at,
+        late_join_delay=args.late_join_delay,
+        late_join_count=args.late_join_count,
     )
 
     if args.qos_comparison:
