@@ -305,9 +305,13 @@ class CANBusAnalyzer:
 
         Model:
           - Each ECU emits num_states state updates during an OTA cycle.
-          - Each update requires 7 CAN frames.
-          - Plus the OTA command: 1 frame × N ECUs (unicast).
-          - At 1 Mbps, effective throughput ≈ 500 frames/sec (50% efficiency).
+          - Each update requires ceil(50/8) = 7 CAN frames.
+          - Command delivery is UNICAST: N sequential transmissions (O(N)).
+          - Bus load is measured over the Deadline QoS burst window (100ms):
+            the period in which all N ECUs must transmit status AND receive
+            the command. This matches the 100ms Deadline policy in QoSProfile
+            and reflects the worst-case coordination load, which is the
+            operationally relevant metric for OTA safety analysis.
 
         Returns dict with: frames_total, bus_load_pct, estimated_latency_ms,
                            congestion_factor, messages_per_ecu
@@ -316,10 +320,7 @@ class CANBusAnalyzer:
             CANBusAnalyzer.OTA_UPDATE_BYTES / CANBusAnalyzer.CAN_DATA_BYTES_PER_FRAME
         )
         status_frames  = num_ecus * num_states * frames_per_update
-        # CAN command delivery is UNICAST: the UpdateManager must send the
-        # START_UPDATE message to each ECU individually → N sequential transmissions.
-        # This is the critical O(N) bottleneck vs DDS O(1) multicast.
-        command_frames = num_ecus * frames_per_update
+        command_frames = num_ecus * frames_per_update   # O(N) unicast
         frames_total   = status_frames + command_frames
 
         # Frame duration at 1 Mbps
@@ -328,21 +329,24 @@ class CANBusAnalyzer:
             + CANBusAnalyzer.CAN_DATA_BYTES_PER_FRAME * 8
         )
         frame_duration_s = bits_per_frame / (CANBusAnalyzer.CAN_BIT_RATE_MBPS * 1e6)
-        bus_time_s = frames_total * frame_duration_s
 
-        # Window: 10-second OTA cycle
-        window_s = 10.0
-        bus_load_pct = (bus_time_s / window_s) * 100.0
+        # ── Bus load: burst-mode (100ms Deadline QoS coordination window) ──
+        # During each 100ms window, all N ECUs must both receive a command
+        # AND publish a status update. This is 2 * N * frames_per_update frames
+        # compressed into 100ms — the peak coordination burst.
+        BURST_WINDOW_S = 0.10  # 100ms — matches deadline_ms in QoSProfile
+        burst_frames   = 2 * num_ecus * frames_per_update  # command + 1 status per ECU
+        burst_time_s   = burst_frames * frame_duration_s
+        bus_load_pct   = (burst_time_s / BURST_WINDOW_S) * 100.0
 
-        # Congestion factor: increases queuing delay when bus_load > 50%
+        # Congestion: queuing delay rises sharply above 50% utilisation
         if bus_load_pct > 50:
             congestion_factor = 1.0 + (bus_load_pct - 50) / 50.0
         else:
             congestion_factor = 1.0
 
-        # CAN command latency: manager must unicast to each ECU serially.
-        # Last ECU only receives command after (N-1) other transmissions complete.
-        # base = N × frames_per_update × frame_duration (serial unicast delivery)
+        # CAN command latency: unicast serial delivery — last ECU waits for
+        # all N-1 predecessors. Congestion multiplies queuing delay.
         base_latency_ms      = num_ecus * frames_per_update * frame_duration_s * 1000.0
         estimated_latency_ms = base_latency_ms * congestion_factor
 
@@ -355,6 +359,7 @@ class CANBusAnalyzer:
             "messages_per_ecu":       num_states * frames_per_update,
             "supports_multicast":     False,
             "protocol":               "CAN 2.0B @ 1Mbps",
+            "burst_window_ms":        BURST_WINDOW_S * 1000,
         }
 
     @staticmethod
@@ -411,11 +416,13 @@ class CANBusAnalyzer:
     @staticmethod
     def print_comparison(num_ecus: int) -> None:
         """Print a formatted CAN vs DDS comparison table."""
-        can = CANBusAnalyzer.calculate_can_overhead(num_ecus)
+        can   = CANBusAnalyzer.calculate_can_overhead(num_ecus)
         dds_m = CANBusAnalyzer.calculate_dds_overhead(num_ecus)
 
+        burst_ms = can.get("burst_window_ms", 100)
         print(f"\n{_BOLD}{'─'*65}")
         print(f"  CAN 2.0B vs DDS — {num_ecus} ECUs")
+        print(f"  (Bus load measured over {burst_ms:.0f}ms Deadline QoS burst window)")
         print(f"{'─'*65}{_RESET}")
         print(f"  {'Metric':<35} {'CAN 2.0B':>12} {'DDS/RTPS':>12}")
         print(f"  {'─'*35} {'─'*12} {'─'*12}")
