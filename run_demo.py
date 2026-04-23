@@ -51,12 +51,16 @@ _RESET  = "\033[0m"
 # ---------------------------------------------------------------------------
 # Banner and section headers — presentation-ready output
 # ---------------------------------------------------------------------------
-
 def print_banner() -> None:
     print(f"""
 {_BOLD}{_CYAN}╔══════════════════════════════════════════════════════════════╗
-║   DDS — Automotive OTA Update Coordination Demo  ║
+║   DDS — Automotive OTA Update Coordination Demo              ║
 ║   AUTOSAR Adaptive | Multi-ECU | Real-time State Sync        ║
+╠══════════════════════════════════════════════════════════════╣
+║  Note: Pure-Python simulation of DDS semantics (pub/sub,     ║
+║  QoS, RTPS discovery, TRANSIENT_LOCAL). API structure and    ║
+║  QoS behaviour are faithful to RTI Connext DDS. Latency      ║
+║  figures are modelled, not measured on hardware.             ║
 ╚══════════════════════════════════════════════════════════════╝{_RESET}
 """)
 
