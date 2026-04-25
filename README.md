@@ -35,15 +35,10 @@ in modern Software-Defined Vehicles.
 
 ### Key Demo Points
 
-| Feature | CAN 2.0B | DDS (simulated) |
-|---|---|---|
-| Command delivery | Unicast × N ECUs | Single multicast |
-| 5-ECU OTA latency | ~25ms | ~4.5ms |
-| 20-ECU bus load | ~60% (congested) | <0.01% |
-| Late-joiner state sync | Manual polling | TRANSIENT_LOCAL (automatic) |
-| Node discovery | Static IDs | RTPS SDP (automatic) |
-| Reliability | Error frames + manual retry | RELIABLE QoS (automatic ACK/NACK) |
-| Safety watchdog | Timeout-based (~500ms) | DDS Deadline + Liveliness (<100ms) |
+- **Deadline QoS** Fault detection
+- **Durability QoS** Late-joining ECUs
+- **Scale implications on DDS and CAN**
+- **CAN comparison with DDS**
 
 ---
 
@@ -73,26 +68,26 @@ python generate_sample_data.py
 
 ---
 
-## Quick Start
+## Demo steps
 
 ```bash
 source .venv/bin/activate
 
-# Full demo: 5 ECUs, firmware 2.0.0, with CAN vs DDS comparison
-python run_demo.py --num-ecus 5 --show-comparison
-
-# Scale to 10 ECUs
-python run_demo.py --num-ecus 10 --firmware 3.0.0
-
-# Demonstrate QoS impact (BEST_EFFORT shows message loss)
-python run_demo.py --num-ecus 5 --qos best_effort
-
-# Inject error for a specific ECU after n amount of time
+# Demo 1: Deadline QoS - Fault Detection
+# Inject an error in ECU_003 after 3 seconds of operation
 python run_demo.py --num-ecus 5 --inject-failure ECU_003 --failure-at 3.0
 
-# Discovery - "--late-join-count" ECUs join the fleet after "--late-join-delay" seconds
+# Demo 2: Durability QoS - Late-joining ECUs
+# DDSI-RTPS Discovery - 2 ECUs join the fleet after 3 seconds
 # Also displays TRANSIENT_LOCAL behaviour => catches samples and delivers them to readers that join after the initial publish
 python run_demo.py --num-ecus 5 --late-join-delay 3 --late-join-count 2
+
+# Demo 3: 20 ECUs, firmware 2.0.0, with CAN vs DDS comparison
+python run_demo.py --num-ecus 20 --show-comparison
+
+# Demo 4: Reliability QoS - RELIABLE vs BEST_EFFORT
+# Demonstrate QoS impact (BEST_EFFORT shows message loss)
+python run_demo.py --num-ecus 5 --qos best_effort
 
 # Generate visualization charts
 python visualize_results.py --generate-sample
@@ -238,8 +233,7 @@ which relies on message-level timeout detection (~1-3 seconds).
 
 ## AUTOSAR Adaptive Relevance
 
-AUTOSAR Adaptive Platform (AP) mandates DDS (via `ara::com`) as the primary IPC
-mechanism for high-bandwidth ECU-to-ECU communication:
+AUTOSAR Adaptive Platform standardizes DDS as one of the ara::com communication bindings, alongside SOME/IP.
 
 - **ara::com DDS binding**: maps `ara::com` service interfaces to DDS topics/types
 - **UCM (Update and Configuration Management)**: uses DDS for OTA coordination — exactly what this demo models
@@ -251,37 +245,7 @@ directly mirrors the AUTOSAR UCM `PackageManagement` state machine.
 
 ---
 
-## Running Pre-recorded vs Live Demo
-
-### Pre-recorded version
-
-```bash
-# Generate all sample data and charts
-python generate_sample_data.py
-python visualize_results.py --generate-sample
-
-# Charts are in plots/
-ls plots/
-```
-
-### Live Demo
-
-```bash
-# 5 ECUs — runs in ~15 seconds
-python run_demo.py --num-ecus 5 --show-comparison
-
-# 10 ECUs — runs in ~20 seconds
-python run_demo.py --num-ecus 10 --firmware 2.1.0
-```
-
----
-
 ## Extending the Demo
-
-### More ECUs
-```bash
-python run_demo.py --num-ecus 20 --duration 60
-```
 
 ### Custom QoS
 Edit the QoS profile in your code:
