@@ -142,7 +142,7 @@ class ECU:
     _JITTER_STDDEV_MS = 10.0
 
     # Probability of installation failure (simulates CRC mismatch, flash error)
-    _INSTALL_ERROR_PROB = 0.05  # 5%
+    _INSTALL_ERROR_PROB = 0.00  # 0%
 
     def __init__(
         self,

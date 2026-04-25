@@ -111,7 +111,7 @@ Simulated automotive ECU with a 7-state OTA state machine:
 
 Each ECU is a DDS participant: publishes `ECUStateUpdate` on `ECUStatus` topic
 (RELIABLE + TRANSIENT_LOCAL) and subscribes to commands on `OTAControl`.
-5% chance of installation failure for resilience demo.
+Configurable chance of installation failure for resilience demo.
 
 ### `update_manager.py`
 OTA Update Coordinator (UCM Master). Broadcasts `START_UPDATE` via DDS multicast,
@@ -262,7 +262,7 @@ custom_qos = QoSProfile(
 ```
 
 ### Adding ECU Error Injection
-In `ecu.py`, adjust `_INSTALL_ERROR_PROB` (default 5%) to increase fault rates
+In `ecu.py`, adjust `_INSTALL_ERROR_PROB` (default 0%) to increase fault rates
 and demonstrate DDS-based resilience detection.
 
 Errors can also be injected manually by:
