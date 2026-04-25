@@ -394,10 +394,11 @@ def run_demo(
         for n in [5, 10, 20, 50]:
             CANBusAnalyzer.print_comparison(n)
 
-        print(f"  {_DIM}Key insight: CAN bus load grows O(N) with unicast messaging.")
-        print(f"  DDS multicast keeps overhead near-constant regardless of ECU count.")
-        print(f"  At 20+ ECUs, CAN exceeds 80% bus utilization — reliability degrades.")
-        print(f"  DDS at 100 ECUs uses <0.01% of 1GbE bandwidth.{_RESET}\n")
+        print(f"  {_DIM}Key insight: CAN bus load is measured during the 100ms Deadline QoS")
+        print(f"  burst window — the period when all ECUs must coordinate simultaneously.")
+        print(f"  At 5 ECUs: ~9% burst load. At 20 ECUs: ~36%. At 50 ECUs: >90% — ")
+        print(f"  the bus enters congestion, causing retransmissions and cascading latency.")
+        print(f"  DDS over GbE stays below 0.01% bus load at all scales.{_RESET}\n")
 
     # ── Cleanup ───────────────────────────────────────────────────────────
     manager.shutdown()
