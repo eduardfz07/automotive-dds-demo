@@ -382,7 +382,7 @@ class UpdateManager:
         if late_ecus:
             lines.append(
                 f"\n{_BOLD}  ★  Late-Joining ECUs "
-                f"— auto-discovered via DDS TRANSIENT_LOCAL{_RESET}"
+                f"— auto-discovered via RTPS {_RESET}"
             )
             lines.append(separator)
             for ecu_id in late_ecus:
